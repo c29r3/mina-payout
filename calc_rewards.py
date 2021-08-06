@@ -16,6 +16,7 @@ foundation_fee = float(c["VALIDATOR_FEE_FOUNDATION"])
 min_height     = int(c["FIRST_BLOCK_HEIGHT"])  # This can be the last known payout or this could vary the query to be a starting date
 latest_block   = int(c["LATEST_BLOCK_HEIGHT"])
 confirmations  = int(c["CONFIRMATIONS_NUM"])  # Can set this to any value for min confirmations up to `k`
+MINIMUM_PAYOUT = float(c["MINIMUM_PAYOUT"])
 decimal_       = 1e9
 COINBASE       = 720
 
@@ -223,7 +224,7 @@ for p in payouts:
                     f'{p["timed_weighting"]}'
 
     # do not pay anything if reward < 0.1 MINA
-    if p["total_reward"] / decimal_ < 0.1:
+    if p["total_reward"] / decimal_ < MINIMUM_PAYOUT:
         continue
 
     write_to_file(data_string=payout_string,
