@@ -22,6 +22,10 @@ FAILED_PAYOUTS    = 0
 FAILED_PAYOUTS_FILE = f"failed_payouts_{EPOCH}.csv"
 FAILED_PAYOUTS_LST  = []
 
+with open("version", "r") as v_file:
+    version = v_file.read()
+print(f'Script version: {version}')
+
 graphql = CodaClient.Client(graphql_host=GRAPHQL_HOST, graphql_port=GRAPHQL_PORT)
 
 print(f"Epoch: {EPOCH}")
