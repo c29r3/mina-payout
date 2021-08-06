@@ -17,6 +17,9 @@ FIRST_BLOCK_HEIGHT: 0
 LATEST_BLOCK_HEIGHT: 0
 # The minimum number of confirmations after which the block is considered canonical
 CONFIRMATIONS_NUM: 15
+# The minimum amount for payments in MINA. If the payment is less than this amount, then the payment will be skipped.
+# Example: 0.1
+MINIMUM_PAYOUT: 0.1
 
 ### PAYOUT SCRIPT PARAMETERS ###
 # GRAPHQL hostname or ip. Example: 127.0.0.1
