@@ -20,6 +20,9 @@ MINIMUM_PAYOUT = float(c["MINIMUM_PAYOUT"])
 decimal_       = 1e9
 COINBASE       = 720
 
+with open("version", "r") as v_file:
+    version = v_file.read()
+print(f'Script version: {version}')
 
 def float_to_string(number, precision=9):
     return '{0:.{prec}f}'.format(
