@@ -36,4 +36,4 @@ DEFAULT_TX_FEE: 10000000
 SEND_FROM_ADDRESS: B62qoiQhNWjwFkfCVBpkDTYytifftoYQB9qJ3z6X4d58ocxmiwUQY8U
 # Time in seconds, during which the script will check the sent transactions. Default: 1200 sec = 20 min. Example: 1200
 # If within the allotted time it is not possible to confirm all transactions, then the script saves unsuccessful transactions to a file
-TX_CHECK_TIMER_SECONDS: 1200
+TX_CHECK_TIMER_SECONDS: 1800
