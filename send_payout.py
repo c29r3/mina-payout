@@ -4,13 +4,13 @@ import time
 import yaml
 
 c = yaml.load(open('config.yml', encoding='utf8'), Loader=yaml.SafeLoader)
-GRAPHQL_HOST      = str(c("GRAPHQL_HOST"))
-GRAPHQL_PORT      = str(c("GRAPHQL_PORT"))
-VALIDATOR_NAME    = str(c("VALIDATOR_NAME"))
+GRAPHQL_HOST      = str(c["GRAPHQL_HOST"])
+GRAPHQL_PORT      = str(c["GRAPHQL_PORT"])
+VALIDATOR_NAME    = str(c["VALIDATOR_NAME"])
 EPOCH             = int(c["STAKING_EPOCH_NUMBER"])
-WALLET_PASSWORD   = str(c("WALLET_PASSWORD"))
+WALLET_PASSWORD   = str(c["WALLET_PASSWORD"])
 default_fee       = int(c["DEFAULT_TX_FEE"])
-send_from         = str(c("SEND_FROM_ADDRESS"))  # coinbase receiver
+send_from         = str(c["SEND_FROM_ADDRESS"])
 TX_CHECK_TIMER    = int(c["TX_CHECK_TIMER_SECONDS"])
 
 MEMO              = f'e{EPOCH}_{VALIDATOR_NAME}'
