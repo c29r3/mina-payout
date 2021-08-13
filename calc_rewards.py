@@ -90,7 +90,7 @@ except Exception as e:
 if not staking_ledger["data"]["stakes"]:
     exit("We have no stakers")
 
-csv_header_delegates = "address;stake;foundation_delegation?"
+csv_header_delegates = "address;stake;foundation_delegation?;is_locked?are_tokens_locked?"
 delegator_file_name  = "delegates.csv"
 write_to_file(data_string=csv_header_delegates, file_name=delegator_file_name, mode="w")
 
@@ -125,7 +125,7 @@ for s in staking_ledger["data"]["stakes"]:
     })
 
     total_staking_balance += s["balance"]
-    delegator_csv_string = f'{s["public_key"]};{float_to_string(s["balance"])};{foundation_delegation}'
+    delegator_csv_string = f'{s["public_key"]};{float_to_string(s["balance"])};{foundation_delegation};{timed_weighting}'
     write_to_file(data_string=delegator_csv_string, file_name=delegator_file_name, mode="a")
 
 try:
