@@ -104,6 +104,12 @@ for s in staking_ledger["data"]["stakes"]:
         # 100% unlocked
         timed_weighting = "unlocked"
         total_staking_balance_unlocked += s["balance"]
+
+    elif str(s["timing"]["timed_weighting"]) == "1":
+        # 100% unlocked
+        timed_weighting = "unlocked"
+        total_staking_balance_unlocked += s["balance"]
+
     else:
         # locked tokens
         timed_weighting = "locked"
