@@ -24,6 +24,7 @@ with open("version", "r") as v_file:
     version = v_file.read()
 print(f'Script version: {version}')
 
+
 def float_to_string(number, precision=9):
     return '{0:.{prec}f}'.format(
         decimal.Context(prec=100).create_decimal(str(number)),
@@ -181,7 +182,8 @@ for b in reversed(blocks["data"]["blocks"]):
                  f"{float_to_string(int(snark_fee) / decimal_)};" \
                  f"{float_to_string(int(tx_fees) / decimal_)};" \
                  f"{epoch};" \
-                 f"{state_hash}"
+                 f"{state_hash};"
+
     write_to_file(data_string=csv_string, file_name=blocks_file_name, mode="a")
 
 total_reward = all_block_rewards + all_blocks_total_fees - total_snark_fee
@@ -241,7 +243,7 @@ print(f"The pool total staking balance is:    {total_staking_balance}\n"
       f"Delegates in the pool:                {len(payouts)}")
 
 validator_reward = total_reward + all_x2_block_rewards - delegators_reward_sum
-print(f'Supercharged rewards total: {all_x2_block_rewards}')
+print(f'Supercharged rewards total: {all_x2_block_rewards / decimal_}')
 print(f'Total:                      {(total_reward + all_x2_block_rewards) / decimal_}')
 print(f'Validator fee:              {validator_reward / decimal_}')
 
