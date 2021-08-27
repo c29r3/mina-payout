@@ -70,13 +70,14 @@ print(f"This script will payout from blocks {min_height} to {max_height}")
 total_staking_balance = 0
 total_staking_balance_unlocked = 0
 total_staking_balance_foundation = 0
-payouts = []
 all_block_rewards = 0
 all_x2_block_rewards = 0
 total_snark_fee = 0
 all_blocks_total_fees = 0
+payouts         = []
+blocks          = []
 blocks_included = []
-store_payout = []
+store_payout    = []
 
 # Get the staking ledger for an epoch
 try:
@@ -91,9 +92,24 @@ except Exception as e:
 if not staking_ledger["data"]["stakes"]:
     exit("We have no stakers")
 
+try:
+    blocks = GraphQL.getBlocks({
+        "creator":        public_key,
+        "epoch":          staking_epoch,
+        "blockHeightMin": min_height,
+        "blockHeightMax": max_height,
+    })
+except Exception as e:
+    print(e)
+    exit("Issue getting blocks from GraphQL")
+
+if not blocks["data"]["blocks"]:
+    exit("Nothing to payout as we didn't win anything")
+
 csv_header_delegates = "address;stake;foundation_delegation?;is_locked?are_tokens_locked?"
 delegator_file_name  = "delegates.csv"
 write_to_file(data_string=csv_header_delegates, file_name=delegator_file_name, mode="w")
+latest_slot_for_created_block = blocks["data"]["blocks"][0]["protocolState"]["consensusState"]["slotSinceGenesis"]
 
 for s in staking_ledger["data"]["stakes"]:
     # skip delegates with staking balance == 0
@@ -104,12 +120,11 @@ for s in staking_ledger["data"]["stakes"]:
         # 100% unlocked
         timed_weighting = "unlocked"
         total_staking_balance_unlocked += s["balance"]
-
-    elif str(s["timing"]["timed_weighting"]) == "1":
-        # 100% unlocked
+    elif s["timing"]["untimed_slot"] <= latest_slot_for_created_block:
+        # if the last slot of the last created validator by the block >= untimed_slot,
+        # then we consider that in this epoch the delegator tokens are completely unlocked
         timed_weighting = "unlocked"
         total_staking_balance_unlocked += s["balance"]
-
     else:
         # locked tokens
         timed_weighting = "locked"
@@ -134,22 +149,6 @@ for s in staking_ledger["data"]["stakes"]:
     total_staking_balance += s["balance"]
     delegator_csv_string = f'{s["public_key"]};{float_to_string(s["balance"])};{foundation_delegation};{timed_weighting}'
     write_to_file(data_string=delegator_csv_string, file_name=delegator_file_name, mode="a")
-
-try:
-    blocks = GraphQL.getBlocks({
-        "creator":        public_key,
-        "epoch":          staking_epoch,
-        "blockHeightMin": min_height,
-        "blockHeightMax": max_height,
-    })
-except Exception as e:
-    print(e)
-    exit("Issue getting blocks from GraphQL")
-
-if not blocks["data"]["blocks"]:
-    exit("Nothing to payout as we didn't win anything")
-
-# pprint(blocks["data"]["blocks"])
 
 csv_header_blocks = "block_height;slot;block_reward;snark_fee;tx_fee;epoch;state_hash"
 blocks_file_name = f"blocks.csv"
@@ -193,7 +192,6 @@ for b in reversed(blocks["data"]["blocks"]):
     write_to_file(data_string=csv_string, file_name=blocks_file_name, mode="a")
 
 total_reward = all_block_rewards + all_blocks_total_fees - total_snark_fee
-
 delegators_reward_sum = 0
 payout_table = []
 
@@ -219,7 +217,6 @@ for p in payouts:
         p["total_reward"]        = float(total_reward * p["percentage_of_total"] * (1 - fee))
 
     delegators_reward_sum += p["total_reward"]
-
     payout_table.append([
         p["publicKey"],
         p["staking_balance"],
