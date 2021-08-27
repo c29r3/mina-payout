@@ -38,7 +38,7 @@ def _graphql_request(query: str, variables: dict = {}):
 def getStakingLedger(variables):
     """Return the staking ledger."""
     query = '''query($delegate: String!, $ledgerHash: String!){
-  stakes(query: {delegate: $delegate, ledgerHash: $ledgerHash}, limit: 1000) {
+  stakes(query: {delegate: $delegate, ledgerHash: $ledgerHash}, limit: 2000) {
     public_key
     balance
     chainId
@@ -63,7 +63,7 @@ def getStakingLedger(variables):
 def getBlocks(variables):
     """Returns all blocks the pool won."""
     query = """query($creator: String!, $epoch: Int, $blockHeightMin: Int, $blockHeightMax: Int, $dateTimeMin: DateTime, $dateTimeMax: DateTime){
-  blocks(query: {creator: $creator, protocolState: {consensusState: {epoch: $epoch}}, canonical: true, blockHeight_gte: $blockHeightMin, blockHeight_lte: $blockHeightMax, dateTime_gte:$dateTimeMin, dateTime_lte:$dateTimeMax, transactions: {userCommands: {from_ne: $creator}}, snarkJobs: {prover_ne: $creator}}, sortBy: DATETIME_DESC) {
+  blocks(query: {creator: $creator, protocolState: {consensusState: {epoch: $epoch}}, canonical: true, blockHeight_gte: $blockHeightMin, blockHeight_lte: $blockHeightMax, dateTime_gte:$dateTimeMin, dateTime_lte:$dateTimeMax}, sortBy: DATETIME_DESC, limit: 1000) {
     blockHeight
     canonical
     creator
@@ -94,7 +94,7 @@ def getBlocks(variables):
   }
 }
 """
-    return (_graphql_request(query, variables))
+    return _graphql_request(query, variables)
 
 
 def getLatestHeight():
