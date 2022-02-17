@@ -61,7 +61,7 @@ for i, p in enumerate(payout_lst, start=1):
     is_it_foundation = p[3]
 
     print(f'{i}\\{len(payout_lst)} '
-          f'{payout_in_mina} MINA --> https://minaexplorer.com/wallet/{delegator_addr}')
+          f'{payout_in_mina} MINA --> https://mina.staketab.com/mainnet/account/{delegator_addr}')
 
     # PAYOUTS STARTS HERE
     hash_result = send_transaction(
@@ -105,10 +105,10 @@ while len(TX_LIST_TO_CHECK):
             continue
 
         elif "pending" in str(tx_data) or "PENDING" in str(tx_data):
-            print(f'Tx has pending status: https://minaexplorer.com/payment/{tx_hash}')
+            print(f'Tx has pending status: https://mina.staketab.com/mainnet/transaction/{tx_hash}')
 
         elif "INCLUDED" in str(tx_data) or "included" in str(tx_data):
-            print(f'Transaction sent successfully: https://minaexplorer.com/payment/{tx_hash}')
+            print(f'Transaction sent successfully: https://mina.staketab.com/mainnet/transaction/{tx_hash}')
             TX_LIST_TO_CHECK.remove(tx)
 
         else:
