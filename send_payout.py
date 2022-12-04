@@ -1,5 +1,5 @@
 import pprint
-from src.codaclient import CodaClient
+import CodaClient
 import time
 import yaml
 
