@@ -73,6 +73,9 @@ def getBlocks(variables):
     receivedTime
     stateHash
     stateHashField
+    winnerAccount {
+      publicKey
+    }
     protocolState {
       consensusState {
         blockHeight
