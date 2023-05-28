@@ -3,22 +3,31 @@ import GraphQL
 import os
 import decimal
 import yaml
+from pprint import pprint
+import argparse
 
+parser = argparse.ArgumentParser(description='Mina payouts script')
 c = yaml.load(open('config.yml', encoding='utf8'), Loader=yaml.SafeLoader)
 ################################################################
 # Define the payout calculation here
 ################################################################
 public_key     = str(c["VALIDATOR_ADDRESS"])
-staking_epoch  = int(c["STAKING_EPOCH_NUMBER"])
+staking_epoch_conf  = int(c["STAKING_EPOCH_NUMBER"])
+staking_epoch_arg   = parser.add_argument('--epoch', default=staking_epoch_conf, type=int, help='epoch number')
+args = parser.parse_args()
+staking_epoch  = int(args.epoch)
 fee            = float(c["VALIDATOR_FEE"])
 SP_FEE         = float(c["VALIDATOR_FEE_SP"])
 foundation_fee = float(c["VALIDATOR_FEE_FOUNDATION"])
+labs_fee       = float(c["VALIDATOR_FEE_O1LABS"])
 min_height     = int(c["FIRST_BLOCK_HEIGHT"])  # This can be the last known payout or this could vary the query to be a starting date
 latest_block   = int(c["LATEST_BLOCK_HEIGHT"])
 confirmations  = int(c["CONFIRMATIONS_NUM"])  # Can set this to any value for min confirmations up to `k`
 MINIMUM_PAYOUT = float(c["MINIMUM_PAYOUT"])
 decimal_       = 1e9
 COINBASE       = 720
+
+print(f'EPOCH: {staking_epoch}')
 
 with open("version", "r") as v_file:
     version = v_file.read()
@@ -39,6 +48,9 @@ def write_to_file(data_string: str, file_name: str, mode: str = "w"):
 
 with open("foundation_addresses.txt", "r") as f:
     foundation_delegations = f.read().split("\n")
+
+with open("O(1)Labs.txt", "r") as f:
+    labs_delegations = f.read().split("\n")
 
 try:
     ledger_hash = GraphQL.getLedgerHash(epoch=staking_epoch)
@@ -70,8 +82,10 @@ print(f"This script will payout from blocks {min_height} to {max_height}")
 total_staking_balance = 0
 total_staking_balance_unlocked = 0
 total_staking_balance_foundation = 0
+total_staking_balance_labs = 0
 all_block_rewards = 0
 all_x2_block_rewards = 0
+supercharged_rewards_by_foundation_and_labs = 0
 total_snark_fee = 0
 all_blocks_total_fees = 0
 payouts         = []
@@ -106,7 +120,7 @@ except Exception as e:
 if not blocks["data"]["blocks"]:
     exit("Nothing to payout as we didn't win anything")
 
-csv_header_delegates = "address;stake;foundation_delegation?;is_locked?are_tokens_locked?"
+csv_header_delegates = "address;stake;delegation_type;;is_locked?are_tokens_locked?"
 delegator_file_name  = "delegates.csv"
 write_to_file(data_string=csv_header_delegates, file_name=delegator_file_name, mode="w")
 latest_slot_for_created_block = blocks["data"]["blocks"][0]["protocolState"]["consensusState"]["slotSinceGenesis"]
@@ -129,12 +143,17 @@ for s in staking_ledger["data"]["stakes"]:
         # locked tokens
         timed_weighting = "locked"
 
+    # Is this a O(1)Labs address
+    if s["public_key"] in labs_delegations:
+        delegation_type = 'o(1)labs'
+        total_staking_balance_labs += s["balance"]
+
     # Is this a Foundation address
-    if s["public_key"] in foundation_delegations:
-        foundation_delegation = True
+    elif s["public_key"] in foundation_delegations:
+        delegation_type = 'foundation'
         total_staking_balance_foundation += s["balance"]
     else:
-        foundation_delegation = False
+        delegation_type = 'common'
 
     payouts.append({
         "publicKey":             s["public_key"],
@@ -143,11 +162,11 @@ for s in staking_ledger["data"]["stakes"]:
         "percentage_of_total":   0,                     # delegator's share in %, relative to total_staking_balance
         "percentage_of_SP":      0,                     # percentage of unlocked tokens from the total amount of unlocked tokens
         "timed_weighting":       timed_weighting,
-        "foundation_delegation": foundation_delegation
+        "delegation_type":       delegation_type,
     })
 
     total_staking_balance += s["balance"]
-    delegator_csv_string = f'{s["public_key"]};{float_to_string(s["balance"])};{foundation_delegation};{timed_weighting}'
+    delegator_csv_string = f'{s["public_key"]};{float_to_string(s["balance"])};{delegation_type};{timed_weighting}'
     write_to_file(data_string=delegator_csv_string, file_name=delegator_file_name, mode="a")
 
 csv_header_blocks = "block_height;slot;block_reward;snark_fee;tx_fee;epoch;state_hash"
@@ -163,6 +182,7 @@ for b in reversed(blocks["data"]["blocks"]):
         print("Block not in canonical chain")
         continue
 
+    winner_account = b["winnerAccount"]["publicKey"]
     block_height = b["blockHeight"]
     slot         = b["protocolState"]["consensusState"]["slotSinceGenesis"]
     block_reward_mina = int(b["transactions"]["coinbase"]) / decimal_
@@ -175,9 +195,22 @@ for b in reversed(blocks["data"]["blocks"]):
     total_snark_fee += int(snark_fee)
     all_blocks_total_fees += int(tx_fees)
     blocks_included.append(b['blockHeight'])
-    if block_reward_mina > COINBASE:
+
+    # if supercharged block winning account in Foundation or o(1)labs
+    # full supercharged reward to validator
+    if block_reward_mina > COINBASE and \
+            winner_account in foundation_delegations + labs_delegations:
+        supercharged_rewards_by_foundation_and_labs += block_reward_nano - (COINBASE * decimal_)
+        all_block_rewards += block_reward_nano - (COINBASE * decimal_)
+
+    # if supercharged reward winning account not in Foundation or o(1)labs
+    # split all SC rewards across unlocked wallets
+    elif block_reward_mina > COINBASE and\
+            winner_account not in foundation_delegations + labs_delegations:
         all_x2_block_rewards += block_reward_nano - (COINBASE * decimal_)
         all_block_rewards += block_reward_nano - (COINBASE * decimal_)
+
+    # without SC rewards --> split rewards across all delegators
     else:
         all_block_rewards += block_reward_nano
 
@@ -202,9 +235,13 @@ except:
     pass
 
 for p in payouts:
-    if p["foundation_delegation"] is True:
+    if p["delegation_type"] == 'foundation':
         p["percentage_of_total"] = float(p["staking_balance"]) / total_staking_balance
         p["total_reward"] = float(total_reward * p["percentage_of_total"] * (1 - foundation_fee))
+
+    elif p["delegation_type"] == 'o(1)labs':
+        p["percentage_of_total"] = float(p["staking_balance"]) / total_staking_balance
+        p["total_reward"] = float(total_reward * p["percentage_of_total"] * (1 - labs_fee))
 
     elif p["timed_weighting"] == "unlocked":
         p["percentage_of_SP"] = float(p["staking_balance"]) / total_staking_balance_unlocked
@@ -217,18 +254,20 @@ for p in payouts:
         p["total_reward"]        = float(total_reward * p["percentage_of_total"] * (1 - fee))
 
     delegators_reward_sum += p["total_reward"]
+
+
     payout_table.append([
         p["publicKey"],
         p["staking_balance"],
         float_to_string(p["total_reward"] / decimal_),
-        p["foundation_delegation"],
+        p["delegation_type"],
         p["timed_weighting"]
     ])
 
     payout_string = f'{p["publicKey"]};' \
                     f'{float_to_string(int(p["total_reward"]))};' \
                     f'{float_to_string(p["total_reward"] / decimal_)};' \
-                    f'{p["foundation_delegation"]};' \
+                    f'{p["delegation_type"]};' \
                     f'{p["timed_weighting"]}'
 
     # do not pay anything if reward < 0.1 MINA
@@ -242,13 +281,18 @@ for p in payouts:
 # We now know the total pool staking balance with total_staking_balance
 print(f"The pool total staking balance is:    {total_staking_balance}\n"
       f"The Foundation delegation balance is: {total_staking_balance_foundation}\n"
+      f"O(1)Labs delegation balance is:       {total_staking_balance_labs}\n"
       f"Blocks won:                           {len(blocks_included)}\n"
       f"Delegates in the pool:                {len(payouts)}")
 
-validator_reward = total_reward + all_x2_block_rewards - delegators_reward_sum
+validator_reward = total_reward + all_x2_block_rewards +\
+                   supercharged_rewards_by_foundation_and_labs - delegators_reward_sum
+
+print(f'Foundation + O(1)Labs supercharged rewards: {supercharged_rewards_by_foundation_and_labs / decimal_}')
 print(f'Supercharged rewards total: {all_x2_block_rewards / decimal_}')
 print(f'Total:                      {(total_reward + all_x2_block_rewards) / decimal_}')
 print(f'Validator fee:              {validator_reward / decimal_}')
 
 print(tabulate(payout_table,
-               headers=["PublicKey", "Staking Balance", "Payout mina", "Foundation", "Tokens_lock_status"], tablefmt="pretty"))
+               headers=["PublicKey", "Staking Balance", "Payout mina",
+                        "Delegation_type", "Tokens_lock_status"], tablefmt="pretty"))
